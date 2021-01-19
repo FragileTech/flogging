@@ -1,0 +1,225 @@
+name: Push
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  PROJECT_NAME: flogging
+  VERSION_FILE: flogging/version.py
+  DEFAULT_BRANCH: master
+  BOT_NAME: fragile-bot
+  BOT_EMAIL: bot@fragile.tech
+  BOT_AUTH_TOKEN: ${{ secrets.BOT_AUTH_TOKEN }}
+  TEST_PYPI_PASS: ${{ secrets.TEST_PYPI_PASS }}
+  PYPI_PASS: ${{ secrets.PYPI_PASS }}
+  DOCKER_ORG: fragiletech
+  DOCKER_USERNAME: ${{ secrets.DOCKERHUB_LOGIN }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_PASS }}
+
+jobs:
+  Style-check:
+    if: "!contains(github.event.head_commit.message, 'Bump version')"
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.8"
+    - name: Install lint dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements-lint.txt ]; then pip install -r requirements-lint.txt; fi
+    - name: Run style check and linter
+      run: |
+        make check
+
+  Pytest:
+    needs: Style-check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.6', '3.7', '3.8', '3.9']
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install test and package dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install .
+    - name: Test with pytest
+      run: |
+        pytest --cov=./ --cov-report=xml
+    - name: Upload coverage report
+      if: ${{ matrix.python-version=='3.8' }}
+      uses: codecov/codecov-action@v1
+
+  Test-docker:
+    needs: Style-check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build container
+      run: |
+        make -f scripts/makefile.docker docker-build
+    - name: Run tests
+      run: |
+        make -f scripts/makefile.docker docker-test
+
+  Build-pypi:
+    needs: Style-check
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+            git fetch --prune --unshallow
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          python -m pip install -U setuptools twine wheel bumpversion
+
+      - name: Create unique version for test.pypi
+        run: |
+          set -e
+          git pull --no-edit origin $DEFAULT_BRANCH
+          current_version=$(grep __version__ $VERSION_FILE | cut -d\" -f2)
+          ts=$(date +%s)
+          new_version="$current_version$ts"
+          bumpversion --current-version $current_version --new-version $new_version patch $VERSION_FILE
+
+      - name: Build package
+        run: |
+          python setup.py --version
+          python setup.py bdist_wheel sdist --format=gztar
+          twine check dist/*
+
+      - name: Publish package to TestPyPI
+        if: "'$TEST_PYPI_PASS' != ''"
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_PASS }}
+          repository_url: https://test.pypi.org/legacy/
+          skip_existing: true
+
+  Test-pypi:
+    if: "'$TEST_PYPI_PASS' != ''"
+    needs: Build-pypi
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple $PROJECT_NAME
+          python -m pip install -r requirements-test.txt
+
+      - name: Test package
+        run: |
+          mv $PROJECT_NAME/tests ./tests
+          rm -rf $PROJECT_NAME
+          pytest
+
+  Bump-version:
+    if: "!contains(github.event.head_commit.message, 'Bump version') && github.ref == 'refs/heads/master' && '$BOT_AUTH_TOKEN' != ''"
+    needs:
+      - Test-pypi
+      - Pytest
+      - Test-docker
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 100
+        persist-credentials: false
+
+    - name: Setup Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
+
+    - name: Install dependencies
+      run: |
+        git config --global user.name "${BOT_NAME}"
+        git config --global user.email "${BOT_EMAIL}"
+        git config --global pull.rebase false
+        pip install bump2version
+
+    - name: Run bump version
+      run: |
+        set -x
+        git pull --no-edit origin $DEFAULT_BRANCH
+        current_version=$(grep __version__ $VERSION_FILE | cut -d\" -f2)
+        bumpversion --tag --current-version $current_version --commit patch $VERSION_FILE
+        git remote add ${BOT_NAME}-remote https://${BOT_NAME}:${BOT_AUTH_TOKEN}@github.com/$GITHUB_REPOSITORY
+        git push --tags ${BOT_NAME}-remote HEAD:$DEFAULT_BRANCH
+        set +e
+
+  Push-Docker-container:
+    runs-on: ubuntu-latest
+    if: "contains(github.event.head_commit.message, 'Bump version') && github.ref == 'refs/heads/master' && '$DOCKER_PASSWORD' != ''"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Login to DockerHub
+        run: |
+          docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" docker.io
+
+      - name: Build container
+        run: |
+          CONTAINER_VERSION=v$(grep __version__ $VERSION_FILE | cut -d\" -f2)
+          make docker-build VERSION=$CONTAINER_VERSION PROJECT=$PROJECT_NAME DOCKER_ORG=$DOCKER_ORG
+      - name: Push images
+
+        run: |
+          CONTAINER_VERSION=v$(grep __version__ $VERSION_FILE | cut -d\" -f2)
+          make -f scripts/makefile.docker docker-push VERSION=$CONTAINER_VERSION PROJECT=$PROJECT_NAME DOCKER_ORG=$DOCKER_ORG
+
+  Release-package:
+    if: "contains(github.event.head_commit.message, 'Bump version') && github.ref == 'refs/heads/master'  && '$PYPI_PASS' != ''"
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          git fetch --prune --unshallow
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          python -m pip install -U setuptools twine wheel
+
+      - name: Build package
+        run: |
+          python setup.py --version
+          python setup.py bdist_wheel sdist --format=gztar
+          twine check dist/*
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_PASS }}

@@ -1,0 +1,21 @@
+template:
+  project_name: flogging
+  description: Logging library with nice format
+  owner: fragiletech
+  email: guillem@fragile.tech
+  author: fragiletech
+  copyright_holder: fragiletech
+  project_url: https://github.com/fragiletech/flogging
+  download_url: https://github.com/fragiletech/flogging.git
+  bot_name: fragile-bot
+  bot_email: bot@fragile.tech
+  license: MIT
+  python_versions:
+    - '3.6'
+    - '3.7'
+    - '3.8'
+    - '3.9'
+  default_branch: master
+requirements:
+  - data-viz
+workflow: python
