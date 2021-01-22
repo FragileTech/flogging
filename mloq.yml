@@ -15,7 +15,7 @@ template:
     - '3.7'
     - '3.8'
     - '3.9'
-  default_branch: master
+  default_branch: main
 requirements:
   - data-viz
 workflow: python
