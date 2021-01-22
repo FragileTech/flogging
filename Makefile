@@ -35,36 +35,3 @@ pipenv-install:
 pipenv-test:
 	find -name "*.pyc" -delete
 	pipenv run pytest -s
-
-.PHONY: docker-build
-docker-build:
-	docker build --pull -t ${DOCKER_ORG}/${PROJECT}:${VERSION} .
-
-.PHONY: docker-test
-docker-test:
-	find -name "*.pyc" -delete
-	docker run --rm -it  -v $(pwd):/io --network host -w /${PROJECT} --entrypoint python3 ${DOCKER_ORG}/${PROJECT}:${VERSION} -m pytest
-
-.PHONY: docker-shell
-docker-shell:
-	docker run --rm --gpus all -v ${current_dir}:/${PROJECT} --network host -w /${PROJECT} -it ${DOCKER_ORG}/${PROJECT}:${VERSION} bash
-
-.PHONY: docker-notebook
-docker-notebook:
-	docker run --rm --gpus all -v ${current_dir}:/${PROJECT} --network host -w /${PROJECT} -it ${DOCKER_ORG}/${PROJECT}:${VERSION}
-
-.PHONY: remove-dev-packages
-remove-dev-packages:
-	pip3 uninstall -y cython && \
-	apt-get remove -y cmake pkg-config flex bison curl libpng-dev \
-		libjpeg-turbo8-dev zlib1g-dev libhdf5-dev libopenblas-dev gfortran \
-		libfreetype6-dev libjpeg8-dev libffi-dev && \
-	apt-get autoremove -y && \
-	apt-get clean && \
-	rm -rf /var/lib/apt/lists/*
-
-.PHONY: docker-push
-docker-push:
-	docker push ${DOCKER_ORG}/${DOCKER_TAG}:${VERSION}
-	docker tag ${DOCKER_ORG}/${DOCKER_TAG}:${VERSION} ${DOCKER_ORG}/${DOCKER_TAG}:latest
-	docker push ${DOCKER_ORG}/${DOCKER_TAG}:latest

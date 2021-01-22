@@ -37,7 +37,7 @@ In order for a PR to be accepted it needs to pass a list of requirements:
 - The CI style check passes (run locally with `make check`).
 - Code Coverage does not decrease.
 - All the tests pass.
-- Python code is formatted according to [![PEP8](https://img.shields.io/badge/code%20style-pep8-orange.svg)](https://www.python.org/dev/peps/pep-0008/).
+- Python code is formatted according to [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black).
 - If the PR is a bug fix, it has to include a new unit test that fails before the patch is merged.
 - If the PR is a new feature, it has to come with a suite of unit tests, that tests the new functionality.
 - In any case, all the PRs have to pass the personal evaluation of at least one of the [maintainers](MAINTAINERS.md).

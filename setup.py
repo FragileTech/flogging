@@ -13,7 +13,7 @@ with open(Path(__file__).with_name("README.md"), encoding="utf-8") as f:
 
 setup(
     name="flogging",
-    description="Logging library with nice format",
+    description="flogging nice logging formatting and structured logging.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),
@@ -22,11 +22,10 @@ setup(
     author="fragiletech",
     author_email="",
     url="",
-    download_url="",
     keywords=["Machine learning", "artificial intelligence"],
     tests_require=["pytest>=5.3.5", "hypothesis>=5.6.0"],
     extras_require={},
-    install_requires=[],
+    install_requires=["pyyaml", "xxhash"],
     package_data={"": ["README.md"]},
     classifiers=[
         "Development Status :: 3 - Alpha",
