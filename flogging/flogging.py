@@ -33,10 +33,26 @@ import traceback
 from typing import Callable, Tuple, Union
 import uuid
 
-import numpy as np
-from numpy.core.arrayprint import _default_array_repr
 import xxhash
 import yaml
+
+
+try:
+    from numpy import ndarray, set_string_function as np_set_string_function
+    from numpy.core.arrayprint import _default_array_repr
+except ImportError:
+    import warnings
+
+    warnings.warn("numpy is not installed. Please install numpy to log numpy arrays.")
+
+    class ndarray:
+        pass
+
+    def np_set_string_function(*args, **kwargs):
+        return
+
+    def _default_array_repr(*args, **kwargs):
+        return ""
 
 
 logs_are_structured = False
@@ -76,7 +92,7 @@ def reduce_thread_id(thread_id: int) -> str:
     return xxhash.xxh32(thread_id.to_bytes(8, "little")).hexdigest()[:4]
 
 
-def repr_array(arr: np.ndarray) -> str:
+def repr_array(arr: ndarray) -> str:
     """repr() with shape."""
     return "array(shape=%r, %s" % (arr.shape, _default_array_repr(arr).split("(", 1)[1])
 
@@ -206,11 +222,11 @@ class StructuredHandler(logging.Handler):
 
 def setup(level: Union[str, int], structured: bool, config_path: str = None):
     """
-    Make stdout and stderr unicode friendly in case of misconfigured \
+    Make stdout and stderr unicode friendly in case of configured \
     environments, initializes the logging, structured logging and \
     enables colored logs if it is appropriate.
 
-    :param level: The global logging level.
+    :param level: The global logging level (case insensitive).
     :param structured: Output JSON logs to stdout.
     :param config_path: Path to a yaml file that configures the level of output of the loggers. \
                         Root logger level is set through the level argument and will override any \
@@ -221,7 +237,7 @@ def setup(level: Union[str, int], structured: bool, config_path: str = None):
     logs_are_structured = structured
 
     if not isinstance(level, int):
-        level = logging._nameToLevel[level]
+        level = logging._nameToLevel[level.upper()]
 
     def ensure_utf8_stream(stream):
         if not isinstance(stream, io.StringIO) and hasattr(stream, "buffer"):
@@ -230,7 +246,7 @@ def setup(level: Union[str, int], structured: bool, config_path: str = None):
         return stream
 
     sys.stdout, sys.stderr = (ensure_utf8_stream(s) for s in (sys.stdout, sys.stderr))
-    np.set_string_function(repr_array)
+    np_set_string_function(repr_array)
 
     # basicConfig is only called to make sure there is at least one handler for the root logger.
     # All the output level setting is down right afterwards.

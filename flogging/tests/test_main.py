@@ -1,7 +1,7 @@
 import pytest
 
-from flogging.__main__ import main
-
 
 def test_main():
-    main()
+    from flogging.flogging import setup as setup_logging
+
+    setup_logging(level="info", structured=False)

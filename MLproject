@@ -1,9 +1,0 @@
-name: flogging
-
-docker_env:
-  image: flogging
-  volumes: [":/flogging"]
-
-entry_points:
-  main:
-    command: "python -m flogging"
