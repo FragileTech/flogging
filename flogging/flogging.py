@@ -30,7 +30,7 @@ import re
 import sys
 import threading
 import traceback
-from typing import Callable, Tuple, Union
+from typing import Callable, Optional, Tuple, Union
 import uuid
 
 import xxhash
@@ -220,7 +220,11 @@ class StructuredHandler(logging.Handler):
         sys.stdout.flush()
 
 
-def setup(level: Union[str, int], structured: bool, config_path: str = None):
+def setup(
+    level: Optional[Union[str, int]] = None,
+    structured: bool = False,
+    config_path: Optional[str] = None,
+):
     """
     Make stdout and stderr unicode friendly in case of configured \
     environments, initializes the logging, structured logging and \
@@ -236,6 +240,7 @@ def setup(level: Union[str, int], structured: bool, config_path: str = None):
     global logs_are_structured
     logs_are_structured = structured
 
+    level = level if level is not None else os.environ.get("LOG_LEVEL", "INFO")
     if not isinstance(level, int):
         level = logging._nameToLevel[level.upper()]
 
