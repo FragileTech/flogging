@@ -34,7 +34,6 @@ from typing import Callable, Optional, Tuple, Union
 import uuid
 
 import xxhash
-import yaml
 
 
 try:
@@ -77,6 +76,10 @@ if _now.month == 12:
     _fest = "🎅 "
 elif _now.month == 10 and _now.day > (31 - 7):
     _fest = "🎃 "
+elif _now.month == 5 and _now.day == 1:
+    _fest = "🔨 "
+elif _now.month == 3 and _now.day == 8:
+    _fest = "👩 "
 else:
     _fest = ""
 del _now
@@ -222,8 +225,7 @@ class StructuredHandler(logging.Handler):
 
 def setup(
     level: Optional[Union[str, int]] = os.environ.get("LOG_LEVEL", "INFO"),  # noqa: B008
-    structured: bool = os.getenv("FLOG_STRUCTURED", False),  # noqa: B008
-    config_path: Optional[str] = None,
+    structured: bool = os.getenv("LOG_STRUCTURED", False),  # noqa: B008
     allow_trailing_dot: bool = True,
 ):
     """
@@ -233,9 +235,6 @@ def setup(
 
     :param level: The global logging level (case insensitive).
     :param structured: Output JSON logs to stdout.
-    :param config_path: Path to a yaml file that configures the level of output of the loggers. \
-                        Root logger level is set through the level argument and will override any \
-                        root configuration found in the conf file.
     :param allow_trailing_dot: If False, raise an exception when a logging message ends with a dot.
     :return: None
     """
@@ -258,11 +257,10 @@ def setup(
     # All the output level setting is down right afterwards.
     logging.basicConfig()
     logging.captureWarnings(True)
-    if config_path is not None and os.path.isfile(config_path):
-        with open(config_path) as fh:
-            config = yaml.safe_load(fh)
-        for key, val in config.items():
-            logging.getLogger(key).setLevel(logging._nameToLevel.get(val, level))
+    for key, val in os.environ.items():
+        if key.startswith("flog_"):
+            domain = key[len("flog_") :]
+            logging.getLogger(domain).setLevel(logging._nameToLevel.get(val, level))
     root = logging.getLogger()
     root.setLevel(level)
 

@@ -26,7 +26,7 @@ setup(
     keywords=["Machine learning", "artificial intelligence"],
     tests_require=["pytest>=5.3.5", "hypothesis>=5.6.0"],
     extras_require={},
-    install_requires=["pyyaml", "xxhash"],
+    install_requires=["xxhash"],
     package_data={"": ["README.md"]},
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -37,5 +37,5 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Topic :: Software Development :: Libraries",
-    ],  # TODO: Add classifiers according to license type
+    ],
 )
