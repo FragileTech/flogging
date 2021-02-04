@@ -5,7 +5,8 @@ from setuptools import find_packages, setup
 
 
 version = SourceFileLoader(
-    "flogging.version", str(Path(__file__).parent / "flogging" / "version.py"),
+    "flogging.version",
+    str(Path(__file__).parent / "flogging" / "version.py"),
 ).load_module()
 
 with open(Path(__file__).with_name("README.md"), encoding="utf-8") as f:

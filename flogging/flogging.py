@@ -122,7 +122,7 @@ def check_trailing_dot(func: Callable) -> Callable:
             if isinstance(msg, str) and msg.endswith(".") and not msg.endswith(".."):
                 raise AssertionError(
                     'Log message is not allowed to have a trailing dot: %s: "%s"'
-                    % (record.name, msg)
+                    % (record.name, msg),
                 )
         args = list(args)
         args[-1] = record
@@ -221,9 +221,10 @@ class StructuredHandler(logging.Handler):
 
 
 def setup(
-    level: Optional[Union[str, int]] = None,
-    structured: bool = False,
+    level: Optional[Union[str, int]] = os.environ.get("LOG_LEVEL", "INFO"),  # noqa: B008
+    structured: bool = os.getenv("FLOG_STRUCTURED", False),  # noqa: B008
     config_path: Optional[str] = None,
+    allow_trailing_dot: bool = True,
 ):
     """
     Make stdout and stderr unicode friendly in case of configured \
@@ -235,12 +236,12 @@ def setup(
     :param config_path: Path to a yaml file that configures the level of output of the loggers. \
                         Root logger level is set through the level argument and will override any \
                         root configuration found in the conf file.
+    :param allow_trailing_dot: If False, raise an exception when a logging message ends with a dot.
     :return: None
     """
     global logs_are_structured
     logs_are_structured = structured
 
-    level = level if level is not None else os.environ.get("LOG_LEVEL", "INFO")
     if not isinstance(level, int):
         level = logging._nameToLevel[level.upper()]
 
@@ -267,7 +268,8 @@ def setup(
 
     if not structured:
         handler = root.handlers[0]
-        handler.emit = check_trailing_dot(handler.emit)
+        if not allow_trailing_dot:
+            handler.emit = check_trailing_dot(handler.emit)
         # pytest injects DontReadFromInput which does not have "closed"
         if not getattr(sys.stdin, "closed", False) and sys.stdout.isatty():
             handler.setFormatter(AwesomeFormatter())
@@ -292,7 +294,9 @@ def set_context(context):
 
 
 def add_logging_args(
-    parser: argparse.ArgumentParser, patch: bool = True, erase_args: bool = True
+    parser: argparse.ArgumentParser,
+    patch: bool = True,
+    erase_args: bool = True,
 ) -> None:
     """
     Add command line flags specific to logging.
@@ -302,7 +306,10 @@ def add_logging_args(
     :param patch: Patch parse_args() to automatically setup logging.
     """
     parser.add_argument(
-        "--log-level", default="INFO", choices=logging._nameToLevel, help="Logging verbosity."
+        "--log-level",
+        default="INFO",
+        choices=logging._nameToLevel,
+        help="Logging verbosity.",
     )
     parser.add_argument(
         "--log-structured",
@@ -310,7 +317,8 @@ def add_logging_args(
         help="Enable structured logging (JSON record per line).",
     )
     parser.add_argument(
-        "--log-config", help="Path to the file which sets individual log levels of domains."
+        "--log-config",
+        help="Path to the file which sets individual log levels of domains.",
     )
     # monkey-patch parse_args()
     # custom actions do not work, unfortunately, because they are not invoked if
@@ -341,6 +349,10 @@ def log_multipart(log: logging.Logger, data: bytes) -> str:
     chunks = int(math.ceil(len(data) / chunk_size))
     for i in range(chunks):
         log.info(
-            "%d / %d %s %s", i + 1, chunks, record_id, data[chunk_size * i : chunk_size * (i + 1)]
+            "%d / %d %s %s",
+            i + 1,
+            chunks,
+            record_id,
+            data[chunk_size * i : chunk_size * (i + 1)],
         )
     return record_id
