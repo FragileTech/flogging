@@ -76,6 +76,10 @@ if _now.month == 12:
     _fest = "🎅 "
 elif _now.month == 10 and _now.day > (31 - 7):
     _fest = "🎃 "
+elif _now.month == 5 and _now.day == 1:
+    _fest = "🔨 "
+elif _now.month == 3 and _now.day == 8:
+    _fest = "👩 "
 else:
     _fest = ""
 del _now
@@ -255,7 +259,7 @@ def setup(
     logging.captureWarnings(True)
     for key, val in os.environ.items():
         if key.startswith("flog_"):
-            domain = key[len("flog_"):]
+            domain = key[len("flog_") :]
             logging.getLogger(domain).setLevel(logging._nameToLevel.get(val, level))
     root = logging.getLogger()
     root.setLevel(level)
