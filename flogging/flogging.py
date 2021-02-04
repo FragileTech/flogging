@@ -314,10 +314,6 @@ def add_logging_args(
         action="store_true",
         help="Enable structured logging (JSON record per line).",
     )
-    parser.add_argument(
-        "--log-config",
-        help="Path to the file which sets individual log levels of domains.",
-    )
     # monkey-patch parse_args()
     # custom actions do not work, unfortunately, because they are not invoked if
     # the corresponding --flags are not specified
