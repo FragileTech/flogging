@@ -226,7 +226,7 @@ class StructuredHandler(logging.Handler):
 def setup(
     level: Optional[Union[str, int]] = os.environ.get("LOG_LEVEL", "INFO"),  # noqa: B008
     structured: bool = os.getenv("LOG_STRUCTURED", False),  # noqa: B008
-    allow_trailing_dot: bool = True,
+    allow_trailing_dot: bool = False,
 ):
     """
     Make stdout and stderr unicode friendly in case of configured \
@@ -235,7 +235,8 @@ def setup(
 
     :param level: The global logging level (case insensitive).
     :param structured: Output JSON logs to stdout.
-    :param allow_trailing_dot: If False, raise an exception when a logging message ends with a dot.
+    :param allow_trailing_dot: value indicating whether to not raise an exception \
+                               when a logging message ends with a dot.
     :return: None
     """
     global logs_are_structured
