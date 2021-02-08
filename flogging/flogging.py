@@ -320,9 +320,9 @@ def add_logging_args(
 
     def _patched_parse_args(args=None, namespace=None) -> argparse.Namespace:
         args = parser._original_parse_args(args, namespace)
-        setup(args.log_level, args.log_structured, args.log_config)
+        setup(args.log_level, args.log_structured)
         if erase_args:
-            for log_arg in ("log_level", "log_structured", "log_config"):
+            for log_arg in ("log_level", "log_structured"):
                 delattr(args, log_arg)
         return args
 
