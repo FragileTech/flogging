@@ -182,21 +182,29 @@ class AwesomeFormatter(logging.Formatter):
 class StructuredHandler(logging.Handler):
     """logging handler for structured logging."""
 
-    def __init__(self, level=logging.NOTSET):
+    def __init__(
+        self, level=logging.NOTSET, level_from_msg: Optional[Callable[[str], Optional[str]]] = None
+    ):
         """Initialize a new StructuredHandler."""
         super().__init__(level)
         self.local = threading.local()
+        self.level_from_msg = level_from_msg if level_from_msg is not None else lambda _: None
 
     @check_trailing_dot
     def emit(self, record: logging.LogRecord):
         """Print the log record formatted as JSON to stdout."""
         created = datetime.datetime.fromtimestamp(record.created, timezone)
         msg = self.format(record)
-        if "GET /status" in msg or "before send dropped event" in msg:
-            # these aiohttp access logs are annoying
-            level = "debug"
-        else:
+        level = self.level_from_msg(msg)
+        if level is None:
             level = record.levelname.lower()
+        else:
+            level = level.lower()
+        if msg.startswith("{"):
+            try:
+                msg = json.loads(msg)
+            except json.JSONDecodeError:
+                pass
         obj = {
             "level": level,
             "msg": msg,
@@ -227,17 +235,20 @@ def setup(
     level: Optional[Union[str, int]] = os.environ.get("LOG_LEVEL", "INFO"),  # noqa: B008
     structured: bool = os.getenv("LOG_STRUCTURED", False),  # noqa: B008
     allow_trailing_dot: bool = False,
-):
+    level_from_msg: Optional[Callable[[str], Optional[str]]] = None,
+) -> None:
     """
     Make stdout and stderr unicode friendly in case of configured \
     environments, initializes the logging, structured logging and \
     enables colored logs if it is appropriate.
 
-    :param level: The global logging level (case insensitive).
+    :param level: Global logging level (case insensitive).
     :param structured: Output JSON logs to stdout.
-    :param allow_trailing_dot: value indicating whether to not raise an exception \
+    :param allow_trailing_dot: Value indicating whether to not raise an exception \
                                when a logging message ends with a dot.
-    :return: None
+    :param level_from_msg: Customize the logging level depending on the formatted message. \
+                           Returning None means no change of the level.
+    :return: Nothing.
     """
     global logs_are_structured
     logs_are_structured = structured
@@ -273,7 +284,7 @@ def setup(
         if not getattr(sys.stdin, "closed", False) and sys.stdout.isatty():
             handler.setFormatter(AwesomeFormatter())
     else:
-        root.handlers[0] = StructuredHandler(level)
+        root.handlers[0] = StructuredHandler(level, level_from_msg)
 
 
 def set_context(context):
@@ -296,6 +307,8 @@ def add_logging_args(
     parser: argparse.ArgumentParser,
     patch: bool = True,
     erase_args: bool = True,
+    allow_trailing_dot: bool = False,
+    level_from_msg: Optional[Callable[[str], Optional[str]]] = None,
 ) -> None:
     """
     Add command line flags specific to logging.
@@ -303,6 +316,10 @@ def add_logging_args(
     :param parser: `argparse` parser where to add new flags.
     :param erase_args: Automatically remove logging-related flags from parsed args.
     :param patch: Patch parse_args() to automatically setup logging.
+    :param allow_trailing_dot: Value indicating whether to not raise an exception \
+                               when a logging message ends with a dot.
+    :param level_from_msg: Customize the logging level depending on the formatted message. \
+                           Returning None means no change of the level.
     """
     parser.add_argument(
         "--log-level",
@@ -321,7 +338,12 @@ def add_logging_args(
 
     def _patched_parse_args(args=None, namespace=None) -> argparse.Namespace:
         args = parser._original_parse_args(args, namespace)
-        setup(args.log_level, args.log_structured)
+        setup(
+            args.log_level,
+            args.log_structured,
+            allow_trailing_dot=allow_trailing_dot,
+            level_from_msg=level_from_msg,
+        )
         if erase_args:
             for log_arg in ("log_level", "log_structured"):
                 delattr(args, log_arg)
