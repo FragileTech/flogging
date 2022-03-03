@@ -80,6 +80,12 @@ elif _now.month == 5 and _now.day == 1:
     _fest = "🔨 "
 elif _now.month == 3 and _now.day == 8:
     _fest = "👩 "
+elif _now.month == 3 and _now.day == 17:
+    _fest = "☘️"
+elif _now.month == 3 and _now.day == 27:
+    _fest = "🥘"
+elif _now.timetuple().tm_yday == 256:
+    _fest = "👨‍💻"
 else:
     _fest = ""
 del _now
