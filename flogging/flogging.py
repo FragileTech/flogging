@@ -242,6 +242,7 @@ def setup(
     structured: bool = os.getenv("LOG_STRUCTURED", False),  # noqa: B008
     allow_trailing_dot: bool = False,
     level_from_msg: Optional[Callable[[str], Optional[str]]] = None,
+    ensure_utf8_string: bool = True,
 ) -> None:
     """
     Make stdout and stderr unicode friendly in case of configured \
@@ -254,6 +255,7 @@ def setup(
                                when a logging message ends with a dot.
     :param level_from_msg: Customize the logging level depending on the formatted message. \
                            Returning None means no change of the level.
+    :param ensure_utf8_string: Ensure that stdout and stderr are utf-8 streams.
     :return: Nothing.
     """
     global logs_are_structured
@@ -268,7 +270,8 @@ def setup(
             stream.encoding = "utf-8"
         return stream
 
-    sys.stdout, sys.stderr = (ensure_utf8_stream(s) for s in (sys.stdout, sys.stderr))
+    if ensure_utf8_string:
+        sys.stdout, sys.stderr = (ensure_utf8_stream(s) for s in (sys.stdout, sys.stderr))
     np_set_string_function(repr_array)
 
     # basicConfig is only called to make sure there is at least one handler for the root logger.
