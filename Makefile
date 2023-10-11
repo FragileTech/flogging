@@ -8,12 +8,12 @@ VERSION ?= latest
 style:
 	black .
 	isort .
+	ruff check --fix-only .
 
 .POSIX:
 check:
-	!(grep -R /tmp ${PROJECT}/tests)
-	flakehell lint ${PROJECT}
-	pylint ${PROJECT}
+	!(grep -R /tmp tests)
+	ruff check ${PROJECT}
 	black --check ${PROJECT}
 
 .PHONY: test
