@@ -1,5 +1,4 @@
-"""
-Structured logging.
+"""Structured logging.
 
 This module defines functions to setup the standard Python logging subsystem to do one of the
 two things:
@@ -18,6 +17,7 @@ You can setup everything using:
 import argparse
 import base64
 import codecs
+from collections.abc import Callable
 import datetime
 import functools
 import io
@@ -30,7 +30,6 @@ import re
 import sys
 import threading
 import traceback
-from typing import Callable, Optional, Tuple, Union
 import uuid
 
 import xxhash
@@ -62,7 +61,7 @@ def get_datetime_now() -> datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def get_timezone() -> Tuple[datetime.tzinfo, str]:
+def get_timezone() -> tuple[datetime.tzinfo, str]:
     """Discover the current time zone and it's standard string representation."""
     dt = get_datetime_now().astimezone()
     tzstr = dt.strftime("%z")
@@ -103,7 +102,7 @@ def reduce_thread_id(thread_id: int) -> str:
 
 def repr_array(arr: ndarray) -> str:
     """repr() with shape."""
-    return "array(shape=%r, %s" % (arr.shape, _default_array_repr(arr).split("(", 1)[1])
+    return f"array(shape={arr.shape.__repr__()}, {_default_array_repr(arr).split('(', 1)[1]}"  # noqa: E501
 
 
 def with_logger(cls):
@@ -116,8 +115,7 @@ trailing_dot_exceptions = set()
 
 
 def check_trailing_dot(func: Callable) -> Callable:
-    """
-    Decorate a function to check if the log message ends with a dot.
+    """Decorate a function to check if the log message ends with a dot.
 
     AssertionError is raised if so.
     """
@@ -129,10 +127,11 @@ def check_trailing_dot(func: Callable) -> Callable:
         if record.name not in trailing_dot_exceptions:
             msg = record.msg
             if isinstance(msg, str) and msg.endswith(".") and not msg.endswith(".."):
-                raise AssertionError(
-                    'Log message is not allowed to have a trailing dot: %s: "%s"'
-                    % (record.name, msg),
+                err_msg = (
+                    f"Log message is not allowed to have a trailing dot:"
+                    f' {record.name}: "{msg}"'
                 )
+                raise AssertionError(err_msg)
         args = list(args)
         args[-1] = record
         return func(*args)
@@ -141,6 +140,7 @@ def check_trailing_dot(func: Callable) -> Callable:
 
 
 class AwesomeFormatter(logging.Formatter):
+
     """logging.Formatter which adds colors to messages and shortens thread ids."""
 
     GREEN_MARKERS = [
@@ -156,7 +156,7 @@ class AwesomeFormatter(logging.Formatter):
     ]
     GREEN_RE = re.compile("(?<![_a-zA-Z0-9])(%s)(?![_a-zA-Z0-9])" % "|".join(GREEN_MARKERS))
 
-    def formatMessage(self, record: logging.LogRecord) -> str:
+    def formatMessage(self, record: logging.LogRecord) -> str:  # noqa: N802
         """Convert the already filled log record to a string."""
         level_color = "0"
         text_color = "0"
@@ -186,10 +186,11 @@ class AwesomeFormatter(logging.Formatter):
 
 
 class StructuredHandler(logging.Handler):
+
     """logging handler for structured logging."""
 
     def __init__(
-        self, level=logging.NOTSET, level_from_msg: Optional[Callable[[str], Optional[str]]] = None
+        self, level=logging.NOTSET, level_from_msg: Callable[[str], str | None] | None = None
     ):
         """Initialize a new StructuredHandler."""
         super().__init__(level)
@@ -238,13 +239,13 @@ class StructuredHandler(logging.Handler):
 
 
 def setup(
-    level: Optional[Union[str, int]] = os.environ.get("LOG_LEVEL", "INFO"),  # noqa: B008
-    structured: bool = os.getenv("LOG_STRUCTURED", False),  # noqa: B008
+    level: str | int | None = os.environ.get("LOG_LEVEL", "INFO"),
+    structured: bool = os.getenv("LOG_STRUCTURED", False),  # noqa: PLW1508, FBT003
     allow_trailing_dot: bool = False,
-    level_from_msg: Optional[Callable[[str], Optional[str]]] = None,
+    level_from_msg: Callable[[str], str | None] | None = None,
+    ensure_utf8_streams: bool = True,
 ) -> None:
-    """
-    Make stdout and stderr unicode friendly in case of configured \
+    """Make stdout and stderr unicode friendly in case of configured \
     environments, initializes the logging, structured logging and \
     enables colored logs if it is appropriate.
 
@@ -254,6 +255,7 @@ def setup(
                                when a logging message ends with a dot.
     :param level_from_msg: Customize the logging level depending on the formatted message. \
                            Returning None means no change of the level.
+    :param ensure_utf8_streams: Ensure that stdout and stderr are utf-8 streams.
     :return: Nothing.
     """
     global logs_are_structured
@@ -268,13 +270,14 @@ def setup(
             stream.encoding = "utf-8"
         return stream
 
-    sys.stdout, sys.stderr = (ensure_utf8_stream(s) for s in (sys.stdout, sys.stderr))
+    if ensure_utf8_streams:
+        sys.stdout, sys.stderr = (ensure_utf8_stream(s) for s in (sys.stdout, sys.stderr))
     np_set_string_function(repr_array)
 
     # basicConfig is only called to make sure there is at least one handler for the root logger.
     # All the output level setting is down right afterwards.
     logging.basicConfig()
-    logging.captureWarnings(True)
+    logging.captureWarnings(capture=True)
     for key, val in os.environ.items():
         if key.startswith("flog_"):
             domain = key[len("flog_") :]
@@ -314,10 +317,9 @@ def add_logging_args(
     patch: bool = True,
     erase_args: bool = True,
     allow_trailing_dot: bool = False,
-    level_from_msg: Optional[Callable[[str], Optional[str]]] = None,
+    level_from_msg: Callable[[str], str | None] | None = None,
 ) -> None:
-    """
-    Add command line flags specific to logging.
+    """Add command line flags specific to logging.
 
     :param parser: `argparse` parser where to add new flags.
     :param erase_args: Automatically remove logging-related flags from parsed args.
@@ -361,8 +363,7 @@ def add_logging_args(
 
 
 def log_multipart(log: logging.Logger, data: bytes) -> str:
-    """
-    Log something big enough to be compressed and split in pieces.
+    """Log something big enough to be compressed and split in pieces.
 
     :return: Log record ID that we can later search for.
     """
