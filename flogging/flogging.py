@@ -197,7 +197,6 @@ class StructuredHandler(logging.Handler):
         self.local = threading.local()
         self.level_from_msg = level_from_msg if level_from_msg is not None else lambda _: None
 
-    @check_trailing_dot
     def emit(self, record: logging.LogRecord):
         """Print the log record formatted as JSON to stdout."""
         created = datetime.datetime.fromtimestamp(record.created, timezone)
@@ -287,13 +286,16 @@ def setup(
 
     if not structured:
         handler = root.handlers[0]
-        if not allow_trailing_dot:
-            handler.emit = check_trailing_dot(handler.emit)
         # pytest injects DontReadFromInput which does not have "closed"
         if not getattr(sys.stdin, "closed", False) and sys.stdout.isatty():
             handler.setFormatter(AwesomeFormatter())
     else:
-        root.handlers[0] = StructuredHandler(level, level_from_msg)
+        handler = StructuredHandler(level, level_from_msg)
+        root.handlers[0] = handler
+
+    if not allow_trailing_dot:
+        handler.emit = check_trailing_dot(handler.emit)
+
 
 
 def set_context(context):
