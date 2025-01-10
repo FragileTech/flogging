@@ -297,7 +297,6 @@ def setup(
         handler.emit = check_trailing_dot(handler.emit)
 
 
-
 def set_context(context):
     """Assign the logging context - an abstract object - to the current thread."""
     try:
