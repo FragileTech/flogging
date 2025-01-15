@@ -234,9 +234,7 @@ class StructuredHandler(logging.Handler):
             obj["context"] = self.local.context
         except AttributeError:
             pass
-        json.dump(obj, sys.stdout, sort_keys=True)
-        sys.stdout.write("\n")
-        sys.stdout.flush()
+        print(json.dumps(obj, sort_keys=True), file=sys.stdout, flush=True)
 
     def flush(self):
         """Write all pending text to stdout."""
