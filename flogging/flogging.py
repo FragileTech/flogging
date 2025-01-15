@@ -197,7 +197,7 @@ class StructuredHandler(logging.Handler):
         self.local = threading.local()
         self.level_from_msg = level_from_msg if level_from_msg is not None else lambda _: None
 
-    def emit(self, record: logging.LogRecord):
+    def emit(self, record: logging.LogRecord):  # noqa: PLR0912
         """Print the log record formatted as JSON to stdout."""
         created = datetime.datetime.fromtimestamp(record.created, timezone)
         msg = self.format(record)
@@ -234,7 +234,7 @@ class StructuredHandler(logging.Handler):
             obj["context"] = self.local.context
         except AttributeError:
             pass
-        print(json.dumps(obj, sort_keys=True), file=sys.stdout, flush=True)
+        print(json.dumps(obj, sort_keys=True), file=sys.stdout, flush=True)  # noqa: T201
 
     def flush(self):
         """Write all pending text to stdout."""
@@ -279,8 +279,8 @@ def setup(
 
     root = logging.getLogger()
     if not root.handlers:
-        # basicConfig is only called to make sure there is at least one handler for the root logger.
-        # All the output level setting is down right afterwards.
+        # basicConfig is only called to make sure there is at least one handler for
+        # the root logger. All the output level setting is down right afterwards.
         logging.basicConfig()
     logging.captureWarnings(capture=True)
     for key, val in os.environ.items():
@@ -292,7 +292,11 @@ def setup(
     if not structured:
         handler = root.handlers[0]
         # pytest injects DontReadFromInput which does not have "closed"
-        if handler.formatter is None and not getattr(sys.stdin, "closed", False) and sys.stdout.isatty():
+        if (
+            handler.formatter is None
+            and not getattr(sys.stdin, "closed", False)
+            and sys.stdout.isatty()
+        ):
             handler.setFormatter(AwesomeFormatter())
     else:
         handler = StructuredHandler(level, level_from_msg)
