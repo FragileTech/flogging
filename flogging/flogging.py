@@ -273,21 +273,22 @@ def setup(
         sys.stdout, sys.stderr = (ensure_utf8_stream(s) for s in (sys.stdout, sys.stderr))
     np_set_string_function(repr_array)
 
-    # basicConfig is only called to make sure there is at least one handler for the root logger.
-    # All the output level setting is down right afterwards.
-    logging.basicConfig()
+    root = logging.getLogger()
+    if not root.handlers:
+        # basicConfig is only called to make sure there is at least one handler for the root logger.
+        # All the output level setting is down right afterwards.
+        logging.basicConfig()
     logging.captureWarnings(capture=True)
     for key, val in os.environ.items():
         if key.startswith("flog_"):
             domain = key[len("flog_") :]
             logging.getLogger(domain).setLevel(logging._nameToLevel.get(val, level))
-    root = logging.getLogger()
     root.setLevel(level)
 
     if not structured:
         handler = root.handlers[0]
         # pytest injects DontReadFromInput which does not have "closed"
-        if not getattr(sys.stdin, "closed", False) and sys.stdout.isatty():
+        if handler.formatter is None and not getattr(sys.stdin, "closed", False) and sys.stdout.isatty():
             handler.setFormatter(AwesomeFormatter())
     else:
         handler = StructuredHandler(level, level_from_msg)
