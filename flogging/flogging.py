@@ -219,6 +219,12 @@ class StructuredHandler(logging.Handler):
             "thread": reduce_thread_id(record.thread),
             "name": record.name,
         }
+        try:
+            rank = os.environ["RANK"]
+        except KeyError:
+            pass
+        else:
+            obj["RANK"] = rank
         if record.exc_info is not None:
             try:
                 obj["error"] = traceback.format_exception(*record.exc_info)[1:]
