@@ -27,13 +27,13 @@ The logging setup supports two main modes:
 To initialize logging in your application, call the `setup()` function. You can specify whether to enable structured logging or use the default human-readable format.
 
 ```python
-from my_logging_module import setup
+from flogging import flogging
 
 # Initialize logging
-setup(level="INFO", structured=False)  # Human-readable format
+flogging.setup(level="INFO", structured=False)  # Human-readable format
 
 # Enable structured logging for production
-setup(level="INFO", structured=True)
+flogging.setup(level="INFO", structured=True)
 ```
 
 #### Parameters for `setup()`
@@ -99,10 +99,10 @@ Example structured log output:
 In structured logging mode, you can attach additional context to each log message by calling `set_context()`. This context is logged alongside the usual fields, allowing you to track custom metadata.
 
 ```python
-from my_logging_module import set_context
+from flogging import flogging
 
 # Set custom context
-set_context({"user_id": "12345", "transaction_id": "abcde"})
+flogging.set_context({"user_id": "12345", "transaction_id": "abcde"})
 
 # The custom context will now appear in each structured log message
 ```
@@ -112,10 +112,11 @@ set_context({"user_id": "12345", "transaction_id": "abcde"})
 When logging large messages (e.g., serialized data or files), the `log_multipart()` function compresses and splits the message into smaller chunks to prevent issues with log size limits.
 
 ```python
-from my_logging_module import log_multipart
+import logging
+from flogging import flogging
 
 # Log a large message
-log_multipart(logging.getLogger(), b"Large data to be logged")
+flogging.log_multipart(logging.getLogger(), b"Large data to be logged")
 ```
 
 This function will automatically split the message and log each chunk, ensuring the entire message is captured.
@@ -140,9 +141,9 @@ You can further customize the format by modifying the `AwesomeFormatter` class, 
 To enforce standards in your logging messages, such as preventing trailing dots in log messages, the module provides the `check_trailing_dot()` decorator. This can be applied to logging functions to raise an error if a message ends with a dot:
 
 ```python
-from my_logging_module import check_trailing_dot
+from flogging import flogging
 
-@check_trailing_dot
+@flogging.check_trailing_dot
 def log_message(record):
     # Your custom logging logic
     pass
@@ -166,7 +167,7 @@ Here's a full example of how to use structured logging with command-line configu
 ```python
 import argparse
 import logging
-from flogging import add_logging_args, set_context, setup
+from flogging.flogging import add_logging_args, set_context, setup
 
 # Initialize logging
 setup(level="INFO", structured=False)  # Human-readable format
