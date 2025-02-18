@@ -189,6 +189,8 @@ class StructuredHandler(logging.Handler):
 
     """logging handler for structured logging."""
 
+    default_fields = set(logging.LogRecord("", logging.NOTSET, "", 1, "msg", (), None).__dict__)
+
     def __init__(
         self, level=logging.NOTSET, level_from_msg: Callable[[str], str | None] | None = None
     ):
@@ -219,6 +221,7 @@ class StructuredHandler(logging.Handler):
             "thread": reduce_thread_id(record.thread),
             "name": record.name,
         }
+        obj.update((k, getattr(record, k)) for k in record.__dict__.keys() - self.default_fields)
         try:
             rank = os.environ["RANK"]
         except KeyError:
