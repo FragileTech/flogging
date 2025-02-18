@@ -128,8 +128,7 @@ def check_trailing_dot(func: Callable) -> Callable:
             msg = record.msg
             if isinstance(msg, str) and msg.endswith(".") and not msg.endswith(".."):
                 err_msg = (
-                    f"Log message is not allowed to have a trailing dot:"
-                    f' {record.name}: "{msg}"'
+                    f'Log message is not allowed to have a trailing dot: {record.name}: "{msg}"'
                 )
                 raise AssertionError(err_msg)
         args = list(args)
@@ -189,15 +188,20 @@ class StructuredHandler(logging.Handler):
 
     """logging handler for structured logging."""
 
-    default_fields = set(logging.LogRecord("", logging.NOTSET, "", 1, "msg", (), None).__dict__)
+    default_fields = set(
+        logging.LogRecord("", logging.NOTSET, "", 1, "msg", (), None).__dict__
+    ).union({"discard_msg", "discard_args"})
 
     def __init__(
-        self, level=logging.NOTSET, level_from_msg: Callable[[str], str | None] | None = None
+        self,
+        level=logging.NOTSET,
+        level_from_msg: Callable[[str], str | None] | None = None,
     ):
         """Initialize a new StructuredHandler."""
         super().__init__(level)
         self.local = threading.local()
         self.level_from_msg = level_from_msg if level_from_msg is not None else lambda _: None
+        self.json = json
 
     def emit(self, record: logging.LogRecord):  # noqa: PLR0912
         """Print the log record formatted as JSON to stdout."""
@@ -210,17 +214,20 @@ class StructuredHandler(logging.Handler):
             level = level.lower()
         if msg.startswith("{"):
             try:
-                msg = json.loads(msg)
+                msg = self.json.loads(msg)
             except json.JSONDecodeError:
                 pass
         obj = {
             "level": level,
-            "msg": msg,
             "source": "%s:%d" % (record.filename, record.lineno),
             "time": format_datetime(created),
             "thread": reduce_thread_id(record.thread),
             "name": record.name,
         }
+        if not getattr(record, "discard_msg", False):
+            obj["msg"] = msg
+        if not getattr(record, "discard_args", False):
+            obj["args"] = record.args
         obj.update((k, getattr(record, k)) for k in record.__dict__.keys() - self.default_fields)
         try:
             rank = os.environ["RANK"]
@@ -237,11 +244,20 @@ class StructuredHandler(logging.Handler):
             obj["context"] = self.local.context
         except AttributeError:
             pass
-        print(json.dumps(obj, sort_keys=True), file=sys.stdout, flush=True)  # noqa: T201
+        print(  # noqa: T201
+            self.json.dumps(obj, sort_keys=True, default=self.json_fallback),
+            file=sys.stdout,
+            flush=True,
+        )
 
     def flush(self):
         """Write all pending text to stdout."""
         sys.stdout.flush()
+
+    @classmethod
+    def json_fallback(cls, obj) -> str:
+        """Format an object that `StructuredHandler.json` doesn't support."""
+        return f"<{type(obj).__name__}>"
 
 
 def setup(
