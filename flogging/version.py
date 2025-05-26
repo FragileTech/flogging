@@ -1,2 +1,2 @@
 """Current version of the project. Do not modify manually."""
-__version__ = "1.0.2"
+__version__ = "1.0.3"
