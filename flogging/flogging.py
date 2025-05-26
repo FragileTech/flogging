@@ -95,9 +95,17 @@ def format_datetime(dt: datetime.datetime):
     return dt.strftime("%Y-%m-%dT%k:%M:%S.%f000") + tzstr
 
 
+_pid: int = os.getpid()
+
+
+def _change_pid():
+    global _pid
+    _pid = os.getpid()
+
+
 def reduce_thread_id(thread_id: int) -> str:
     """Make a shorter thread identifier by hashing the original."""
-    return xxhash.xxh32(thread_id.to_bytes(8, "little")).hexdigest()[:4]
+    return xxhash.xxh32((thread_id ^ _pid).to_bytes(8, "little")).hexdigest()[:4]
 
 
 def repr_array(arr: ndarray) -> str:
@@ -323,6 +331,8 @@ def setup(
 
     if not allow_trailing_dot:
         handler.emit = check_trailing_dot(handler.emit)
+
+    os.register_at_fork(after_in_child=_change_pid)
 
 
 def set_context(context):
